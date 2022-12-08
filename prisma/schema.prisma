@@ -1,0 +1,46 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+// datasource db {
+//   provider = "sqlite"
+//   url      = env("DATABASE_URL")
+// }
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Item {
+  id       Int @id
+  quantity Int
+}
+
+model History {
+  id        Int      @id @default(autoincrement())
+  createdAt DateTime @default(now())
+  type      Type
+
+  items HistoryItem[]
+}
+
+model HistoryItem {
+  id       Int    @id @default(autoincrement())
+  itemId   Int
+  quantity Int
+  status   String
+
+  history   History? @relation(fields: [historyId], references: [id])
+  historyId Int?
+}
+
+enum Type {
+  IMPORT
+  EXPORT
+}
+
+enum Status {
+  GOOD
+  BAD
+}
