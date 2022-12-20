@@ -2,36 +2,35 @@ generator client {
   provider = "prisma-client-js"
 }
 
-// datasource db {
-//   provider = "sqlite"
-//   url      = env("DATABASE_URL")
-// }
-
 datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
 }
 
 model Item {
-  id       Int @id
+  itemId   Int @id
   quantity Int
+
+  HistoryItem HistoryItem[]
 }
 
 model History {
-  id        Int      @id @default(autoincrement())
-  createdAt DateTime @default(now())
+  historyId Int            @id @default(autoincrement())
+  createdAt DateTime       @default(now())
+  status    RequestStatus? @default(PENDING)
   type      Type
 
-  items HistoryItem[]
+  HistoryItem HistoryItem[]
 }
 
 model HistoryItem {
-  id       Int    @id @default(autoincrement())
-  itemId   Int
-  quantity Int
-  status   String
+  historyItemId Int         @id @default(autoincrement())
+  quantity      Int
+  status        ItemStatus? @default(GOOD)
+  item          Item?       @relation(fields: [itemId], references: [itemId])
+  itemId        Int
 
-  history   History? @relation(fields: [historyId], references: [id])
+  history   History? @relation(fields: [historyId], references: [historyId])
   historyId Int?
 }
 
@@ -40,7 +39,13 @@ enum Type {
   EXPORT
 }
 
-enum Status {
+enum RequestStatus {
+  PENDING
+  ACCEPTED
+  REJECTED
+}
+
+enum ItemStatus {
   GOOD
   BAD
 }

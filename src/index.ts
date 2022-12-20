@@ -1,7 +1,7 @@
 import "dotenv/config";
 import express from "express";
-import { HOST, PORT } from "./configs/env.js";
-import router from "./routes/index.js";
+import { HOST, PORT } from "./constants/env";
+import router from "./routes";
 
 const main = async () => {
   const app = express();
