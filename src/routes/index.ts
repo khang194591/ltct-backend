@@ -165,4 +165,19 @@ router.get("/static/best-seller", async (req, res) => {});
 
 router.get("/static/worst-seller", async (req, res) => {});
 
+router.get("/history/import", async (req, res) => {
+  try {
+    const result = await prisma.history.findMany({
+      where: {
+        type: "IMPORT",
+        status: "ACCEPTED",
+      },
+    });
+    res.json(result);
+  } catch (error: any) {
+    console.log(error);
+    res.json({ error: INTERNAL_SERVER_ERROR, msg: error.message });
+  }
+});
+
 export default router;
