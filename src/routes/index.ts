@@ -5,7 +5,7 @@ import { INTERNAL_SERVER_ERROR } from "../constants/response";
 
 const router = Router();
 
-// Get specific item's quantity
+// TODO: SP_13
 router.get("/product/:itemId", async (req, res) => {
   try {
     const itemId = Number.parseInt(req.params.itemId);
@@ -20,6 +20,7 @@ router.get("/product/:itemId", async (req, res) => {
   }
 });
 
+// TODO: SP_13
 router.put("/request/import", async (req, res) => {
   try {
     const data = req.body as { items: Item[] };
@@ -56,6 +57,7 @@ router.put("/request/import", async (req, res) => {
   }
 });
 
+// TODO: SP_13
 router.put("/request/export", async (req, res) => {
   try {
     const data = req.body as { items: Item[] };
@@ -105,6 +107,7 @@ router.put("/request/export", async (req, res) => {
   }
 });
 
+// TODO: SP_13
 router.patch("/request/handle", async (req, res) => {
   try {
     const historyId = Number.parseInt(req.body.historyId);
@@ -161,10 +164,16 @@ router.patch("/request/handle", async (req, res) => {
   }
 });
 
+// TODO: SP_02
 router.get("/static/best-seller", async (req, res) => {});
 
+// TODO: SP_02
 router.get("/static/worst-seller", async (req, res) => {});
 
+// TODO: SP_13
+router.get("/static/most-return", async (req, res) => {});
+
+// DONE
 router.get("/history/import", async (req, res) => {
   try {
     const result = await prisma.history.findMany({
@@ -179,5 +188,8 @@ router.get("/history/import", async (req, res) => {
     res.json({ error: INTERNAL_SERVER_ERROR, msg: error.message });
   }
 });
+
+// TODO: SP_13
+router.get("/history/export", async (req, res) => {});
 
 export default router;

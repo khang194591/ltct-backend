@@ -8,17 +8,18 @@ datasource db {
 }
 
 model Item {
-  itemId   Int @id
-  quantity Int
-
-  HistoryItem HistoryItem[]
+  itemId       Int           @id
+  goodQuantity Int
+  badQuantity  Int
+  HistoryItem  HistoryItem[]
 }
 
 model History {
-  historyId Int            @id @default(autoincrement())
-  createdAt DateTime       @default(now())
-  status    RequestStatus? @default(PENDING)
-  type      Type
+  historyId     Int            @id @default(autoincrement())
+  createdAt     DateTime       @default(now())
+  status        RequestStatus? @default(PENDING)
+  packingStatus PackingStatus?
+  type          Type
 
   HistoryItem HistoryItem[]
 }
@@ -34,9 +35,15 @@ model HistoryItem {
   historyId Int?
 }
 
+model Packaging {
+  packagingId Int @id @default(autoincrement())
+}
+
 enum Type {
   IMPORT
   EXPORT
+  INSURANCE_EXPORT
+  RETURN
 }
 
 enum RequestStatus {
@@ -48,4 +55,9 @@ enum RequestStatus {
 enum ItemStatus {
   GOOD
   BAD
+}
+
+enum PackingStatus {
+  DONE
+  PENDING
 }
