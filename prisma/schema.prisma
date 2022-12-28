@@ -35,10 +35,6 @@ model HistoryItem {
   historyId Int?
 }
 
-model Packaging {
-  packagingId Int @id @default(autoincrement())
-}
-
 enum Type {
   IMPORT
   EXPORT

@@ -20,6 +20,52 @@ router.get("/product/:itemId", async (req, res) => {
   }
 });
 
+// Lấy danh sách các đơn xuất
+// TODO: SP_2
+router.get("/request/export", async (req, res) => {
+  try {
+    const list = await prisma.history.findMany({where: {type : "EXPORT"}});
+    if (!list) {
+      return res.json({error: 'No have bill'});
+    }
+    res.json(list);
+  } catch (error: any) {
+    console.log(error);
+    res.json({ error: INTERNAL_SERVER_ERROR, msg: error.message });
+  } 
+});
+// Lấy danh sách các đơn xuất
+// TODO: SP_2
+router.get("/request/import", async (req, res) => {
+  try {
+    const list = await prisma.history.findMany({where: {type : "IMPORT"}});
+    if (!list) {
+      return res.json({error: 'No have bill'});
+    }
+    res.json(list);
+  } catch (error: any) {
+    console.log(error);
+    res.json({ error: INTERNAL_SERVER_ERROR, msg: error.message });
+  } 
+});
+
+// Lấy các sản phẩm của 1 historyId
+// TODO: SP_2
+router.get("/request/detail/:historyId", async (req, res) => {
+  try {
+    const historyId = Number.parseInt(req.params.historyId);
+    const list = await prisma.historyItem.findMany({where: {historyId}});
+    if (!list) {
+      return res.json({error: "No have item"});
+    }
+    res.json(list);
+  } catch (error: any) {
+    console.log(error);
+    res.json({error: INTERNAL_SERVER_ERROR, msg: error.message});
+  }
+});
+
+/*
 // TODO: SP_13
 router.put("/request/import", async (req, res) => {
   try {
@@ -57,7 +103,7 @@ router.put("/request/import", async (req, res) => {
   }
 });
 
-// TODO: SP_13
+/// TODO: SP_13
 router.put("/request/export", async (req, res) => {
   try {
     const data = req.body as { items: Item[] };
@@ -108,7 +154,7 @@ router.put("/request/export", async (req, res) => {
 });
 
 // TODO: SP_13
-router.patch("/request/handle", async (req, res) => {
+router.patch("request/handle", async (req, res) => {
   try {
     const historyId = Number.parseInt(req.body.historyId);
     const status = req.body.status;
@@ -164,8 +210,33 @@ router.patch("/request/handle", async (req, res) => {
   }
 });
 
+*/
+
 // TODO: SP_02
-router.get("/static/best-seller", async (req, res) => {});
+router.get("/static/best-seller", async (req, res) => {
+  let sortList:any = [];
+  try {
+    const result = await prisma.history.findMany({
+      where: {
+        type: "EXPORT"
+      },
+    });
+
+    result.map(async (item, index) => {
+      let listItem = await prisma.historyItem.findMany({where: {historyId: item.historyId}});
+      listItem.map((i) => {
+        var itemId:number = i.itemId;
+        sortList[itemId] ? sortList[itemId] += i.quantity : sortList[itemId] = i.quantity;
+        console.log("IN: ", sortList);
+      });
+      
+      res.json(sortList);
+    });
+  } catch (error: any) {
+    console.log(error);
+    res.json({ error: INTERNAL_SERVER_ERROR, msg: error.message });
+  }
+});
 
 // TODO: SP_02
 router.get("/static/worst-seller", async (req, res) => {});
