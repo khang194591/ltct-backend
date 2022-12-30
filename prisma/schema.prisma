@@ -9,6 +9,7 @@ datasource db {
 
 model Item {
   itemId       Int           @id
+  productId    Int
   goodQuantity Int
   badQuantity  Int
   HistoryItem  HistoryItem[]
