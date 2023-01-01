@@ -9,6 +9,7 @@ datasource db {
 
 model Item {
   itemId       Int           @id
+  productID    Int
   goodQuantity Int
   badQuantity  Int
   HistoryItem  HistoryItem[]
@@ -16,10 +17,12 @@ model Item {
 
 model History {
   historyId     Int            @id @default(autoincrement())
-  createdAt     DateTime       @default(now())
   status        RequestStatus? @default(PENDING)
   packingStatus PackingStatus?
   type          Type
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now()) @updatedAt
 
   HistoryItem HistoryItem[]
 }
@@ -28,15 +31,12 @@ model HistoryItem {
   historyItemId Int         @id @default(autoincrement())
   quantity      Int
   status        ItemStatus? @default(GOOD)
-  item          Item?       @relation(fields: [itemId], references: [itemId])
-  itemId        Int
+
+  item   Item? @relation(fields: [itemId], references: [itemId])
+  itemId Int
 
   history   History? @relation(fields: [historyId], references: [historyId])
   historyId Int?
-}
-
-model Packaging {
-  packagingId Int @id @default(autoincrement())
 }
 
 enum Type {
