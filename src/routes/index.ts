@@ -1,4 +1,5 @@
 import { Item, RequestStatus, Type } from "@prisma/client";
+import dayjs from "dayjs";
 import { Router } from "express";
 import prisma from "../configs/db";
 import { INTERNAL_SERVER_ERROR } from "../constants/response";
@@ -116,10 +117,10 @@ router.post("/import", async (req, res) => {
   }
 });
 
-// TODO:
+// TODO: Finish but not test
 router.patch("/import/:historyId", async (req, res) => {
   try {
-    const historyId = Number.parseInt(req.body.historyId);
+    const historyId = Number.parseInt(req.params.historyId);
     const status = req.body.status;
 
     const history = await prisma.history.findUnique({
@@ -202,7 +203,6 @@ router.get("/export", async (req, res) => {
   }
 });
 
-// TODO: Báo với Kỳ gộp thành route này
 router.get("/history/:historyId", async (req, res) => {
   try {
     const result = await prisma.history.findUnique({
@@ -379,25 +379,104 @@ router.patch("/request/handle", async (req, res) => {
 
 */
 
-// TODO: SP_02
-router.get("/static/best-seller", async (req, res) => {});
-
-// TODO: SP_02
-router.get("/static/worst-seller", async (req, res) => {});
-
-// TODO: SP_13
-router.get("/static/most-return", async (req, res) => {});
-
-// DONE
-router.get("/history/import", async (req, res) => {
+// TODO: Finish but not test
+router.get("/static/best-seller", async (req, res) => {
   try {
-    const result = await prisma.history.findMany({
+    const result = await prisma.historyItem.groupBy({
+      by: ["itemId"],
       where: {
-        type: "IMPORT",
-        status: "ACCEPTED",
+        history: {
+          status: "ACCEPTED",
+          type: "EXPORT",
+          createdAt: {
+            gte: dayjs().subtract(1, "month").toDate(),
+          },
+        },
+      },
+      _sum: {
+        quantity: true,
+      },
+      orderBy: {
+        _sum: {
+          quantity: "desc",
+        },
       },
     });
-    res.json(result);
+
+    const temp = await prisma.item.findMany({
+      where: {
+        itemId: {
+          in: result.map((item) => item.itemId),
+        },
+      },
+    });
+
+    const tempObj: any = temp.reduce(
+      (obj, cur) => ({ ...obj, [cur.itemId]: cur }),
+      {}
+    );
+
+    const aa = result.map((item) => {
+      return {
+        itemId: item.itemId,
+        productID: tempObj[item.itemId].productID,
+        sum: item._sum.quantity,
+      };
+    });
+
+    res.json(aa);
+  } catch (error: any) {
+    console.log(error);
+    res.json({ error: INTERNAL_SERVER_ERROR, msg: error.message });
+  }
+});
+
+// TODO: Finish but not test
+router.get("/static/worst-seller", async (req, res) => {
+  try {
+    const result = await prisma.historyItem.groupBy({
+      by: ["itemId"],
+      where: {
+        history: {
+          status: "ACCEPTED",
+          type: "EXPORT",
+          createdAt: {
+            gte: dayjs().subtract(1, "month").toDate(),
+          },
+        },
+      },
+      _sum: {
+        quantity: true,
+      },
+      orderBy: {
+        _sum: {
+          quantity: "asc",
+        },
+      },
+    });
+
+    const temp = await prisma.item.findMany({
+      where: {
+        itemId: {
+          in: result.map((item) => item.itemId),
+        },
+      },
+    });
+
+    const tempObj: any = temp.reduce(
+      (obj, cur) => ({ ...obj, [cur.itemId]: cur }),
+      {}
+    );
+
+    const aa = result.map((item) => {
+      return {
+        itemId: item.itemId,
+        productID: tempObj[item.itemId].productID,
+        sum: item._sum.quantity,
+      };
+    });
+
+    res.json(aa);
   } catch (error: any) {
     console.log(error);
     res.json({ error: INTERNAL_SERVER_ERROR, msg: error.message });
@@ -405,6 +484,55 @@ router.get("/history/import", async (req, res) => {
 });
 
 // TODO: SP_13
-router.get("/history/export", async (req, res) => {});
+router.get("/static/most-return", async (req, res) => {
+  try {
+    const result = await prisma.historyItem.groupBy({
+      by: ["itemId"],
+      where: {
+        history: {
+          status: "ACCEPTED",
+          type: "RETURN",
+          createdAt: {
+            gte: dayjs().subtract(1, "month").toDate(),
+          },
+        },
+      },
+      _sum: {
+        quantity: true,
+      },
+      orderBy: {
+        _sum: {
+          quantity: "desc",
+        },
+      },
+    });
+
+    const temp = await prisma.item.findMany({
+      where: {
+        itemId: {
+          in: result.map((item) => item.itemId),
+        },
+      },
+    });
+
+    const tempObj: any = temp.reduce(
+      (obj, cur) => ({ ...obj, [cur.itemId]: cur }),
+      {}
+    );
+
+    const aa = result.map((item) => {
+      return {
+        itemId: item.itemId,
+        productID: tempObj[item.itemId].productID,
+        sum: item._sum.quantity,
+      };
+    });
+
+    res.json(aa);
+  } catch (error: any) {
+    console.log(error);
+    res.json({ error: INTERNAL_SERVER_ERROR, msg: error.message });
+  }
+});
 
 export default router;
