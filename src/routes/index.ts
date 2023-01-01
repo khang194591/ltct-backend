@@ -1,19 +1,168 @@
-import { Item } from "@prisma/client";
+import { Item, RequestStatus, Type } from "@prisma/client";
 import { Router } from "express";
 import prisma from "../configs/db";
 import { INTERNAL_SERVER_ERROR } from "../constants/response";
 
+type IItem = Item & { guildline: string };
+
 const router = Router();
 
-// TODO: SP_13
-router.get("/product/:itemId", async (req, res) => {
+router.get("/product/item/:itemId", async (req, res) => {
   try {
     const itemId = Number.parseInt(req.params.itemId);
-    const item = await prisma.item.findUnique({ where: { itemId } });
+    const item = await prisma.item.findUnique({
+      where: { itemId },
+    });
     if (!item) {
-      return res.json({ error: `Item not found` });
+      return res.status(404).json({ error: `Item not found` });
     }
-    res.json(item);
+    res.json({ id: item.itemId, quantity: item.goodQuantity });
+  } catch (error: any) {
+    console.log(error);
+    res.status(500).json({ error: INTERNAL_SERVER_ERROR, msg: error.message });
+  }
+});
+
+router.get("/product/quantity/:productID", async (req, res) => {
+  try {
+    const items = await prisma.item.findMany({
+      where: { productID: Number.parseInt(req.params.productID) },
+    });
+    if (!items || items.length === 0) {
+      return res.status(404).json({ error: `Product not found` });
+    }
+    res.json(items);
+  } catch (error: any) {
+    console.log(error);
+    res.status(500).json({ error: INTERNAL_SERVER_ERROR, msg: error.message });
+  }
+});
+
+router.get("/import", async (req, res) => {
+  try {
+    const limit = Number.parseInt((req.query.limit as string) ?? 10);
+    const offset = Number.parseInt((req.query.offset as string) ?? 0);
+    const status = String(req.query.status) as RequestStatus;
+    if (
+      status.valueOf() !== "ACCEPTED" &&
+      status.valueOf() !== "PENDING" &&
+      status.valueOf() !== "REJECTED"
+    ) {
+      return res.status(400).json({ msg: "Invalid query string" });
+    }
+
+    const result = await prisma.history.findMany({
+      where: { status, type: "IMPORT" },
+      take: limit,
+      skip: offset,
+      orderBy:
+        status === "PENDING"
+          ? {
+              createdAt: "desc",
+            }
+          : {
+              updatedAt: "desc",
+            },
+    });
+    res.json(result);
+  } catch (error: any) {
+    console.log(error);
+    res.status(500).json({ error: INTERNAL_SERVER_ERROR, msg: error.message });
+  }
+});
+
+// TODO: Finish but not test
+router.post("/import", async (req, res) => {
+  try {
+    const data = req.body as { items: IItem[] };
+
+    if (!data.items || data.items.length === 0) {
+      return res.json({ error: "Please provide at least one item" });
+    }
+
+    for (let index = 0; index < data.items.length; index++) {
+      const element = data.items[index];
+      await prisma.item.upsert({
+        where: {
+          itemId: element.itemId,
+        },
+        create: {
+          itemId: element.itemId,
+          goodQuantity: 0,
+          badQuantity: 0,
+          productID: element.productID,
+        },
+        update: {},
+      });
+    }
+    const result = await prisma.history.create({
+      data: {
+        type: "IMPORT",
+        HistoryItem: {
+          create: data.items.map((item) => {
+            if (item.goodQuantity !== 0) {
+              return { quantity: item.goodQuantity, itemId: item.itemId };
+            } else {
+              return { quantity: item.badQuantity, itemId: item.itemId };
+            }
+          }),
+        },
+      },
+    });
+    res.json(result);
+  } catch (error: any) {
+    console.log(error);
+    res.json({ error: INTERNAL_SERVER_ERROR, msg: error.message });
+  }
+});
+
+// TODO:
+router.patch("/import/:historyId", async (req, res) => {
+  try {
+    const historyId = Number.parseInt(req.body.historyId);
+    const status = req.body.status;
+
+    const history = await prisma.history.findUnique({
+      where: { historyId },
+      select: {
+        HistoryItem: true,
+        type: true,
+        status: true,
+      },
+    });
+    if (history) {
+      if (history.status !== "PENDING") {
+        return res.json({
+          message: "This request has been accepted or rejected before",
+        });
+      }
+      await prisma.history.update({
+        where: { historyId },
+        data: {
+          status: status,
+        },
+      });
+      if (
+        (status === "ACCEPTED" && history.type === "IMPORT") ||
+        (status === "REJECTED" && history.type === "EXPORT")
+      ) {
+        history.HistoryItem.map(async (item) => {
+          await prisma.item.update({
+            where: {
+              itemId: item.itemId,
+            },
+            data: {
+              goodQuantity: {
+                increment: item.quantity,
+              },
+            },
+          });
+        });
+      }
+      return res.json({ message: "Success" });
+    } else {
+      return res.status(500).json({ message: "Not found" });
+    }
   } catch (error: any) {
     console.log(error);
     res.json({ error: INTERNAL_SERVER_ERROR, msg: error.message });
@@ -83,7 +232,8 @@ router.put("/request/import", async (req, res) => {
         },
         create: {
           itemId: element.itemId,
-          quantity: 0,
+          goodQuantity: 0,
+          badQuantity: 0,
         },
         update: {},
       });
@@ -92,7 +242,12 @@ router.put("/request/import", async (req, res) => {
       data: {
         type: "IMPORT",
         HistoryItem: {
-          create: data.items,
+          create: data.items.map(item=>{
+            
+            if (item.goodQuantity!==0) {
+              
+            }
+          }),
         },
       },
     });

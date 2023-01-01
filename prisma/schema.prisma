@@ -9,7 +9,11 @@ datasource db {
 
 model Item {
   itemId       Int           @id
+<<<<<<< HEAD
   productId    Int
+=======
+  productID    Int
+>>>>>>> 9e8ab8e04c3fd48c52dc8ea482ba15c9fdea356d
   goodQuantity Int
   badQuantity  Int
   HistoryItem  HistoryItem[]
@@ -17,10 +21,12 @@ model Item {
 
 model History {
   historyId     Int            @id @default(autoincrement())
-  createdAt     DateTime       @default(now())
   status        RequestStatus? @default(PENDING)
   packingStatus PackingStatus?
   type          Type
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now()) @updatedAt
 
   HistoryItem HistoryItem[]
 }
@@ -29,8 +35,9 @@ model HistoryItem {
   historyItemId Int         @id @default(autoincrement())
   quantity      Int
   status        ItemStatus? @default(GOOD)
-  item          Item?       @relation(fields: [itemId], references: [itemId])
-  itemId        Int
+
+  item   Item? @relation(fields: [itemId], references: [itemId])
+  itemId Int
 
   history   History? @relation(fields: [historyId], references: [historyId])
   historyId Int?
