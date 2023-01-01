@@ -9,11 +9,7 @@ datasource db {
 
 model Item {
   itemId       Int           @id
-<<<<<<< HEAD
   productId    Int
-=======
-  productID    Int
->>>>>>> 9e8ab8e04c3fd48c52dc8ea482ba15c9fdea356d
   goodQuantity Int
   badQuantity  Int
   HistoryItem  HistoryItem[]
