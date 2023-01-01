@@ -3,6 +3,7 @@ import "dotenv/config";
 import express from "express";
 import { HOST, PORT } from "./constants/env";
 import router from "./routes";
+import prisma, {} from "./configs/db"
 
 const main = async () => {
   const app = express();
@@ -25,3 +26,5 @@ const main = async () => {
 };
 
 main();
+const SegfaultHandler = require('segfault-handler');
+SegfaultHandler.registerHandler('crash.log');
