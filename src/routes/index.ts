@@ -26,10 +26,10 @@ router.get("/product/item/:itemId", async (req, res) => {
   }
 });
 
-router.get("/product/quantity/:productID", async (req, res) => {
+router.get("/product/quantity/:productId", async (req, res) => {
   try {
     const items = await prisma.item.findMany({
-      where: { productID: Number.parseInt(req.params.productID) },
+      where: { productId: Number.parseInt(req.params.productId) },
     });
     if (!items || items.length === 0) {
       return res.status(404).json({ error: `Product not found` });
@@ -103,7 +103,7 @@ router.post("/import", async (req, res) => {
           itemId: element.itemId,
           goodQuantity: 0,
           badQuantity: 0,
-          productID: element.productID,
+          productId: element.productId,
         },
         update: {},
       });
@@ -417,7 +417,7 @@ router.get("/static/best-seller", async (req, res) => {
     const result = items.map((item) => {
       return {
         itemId: item.itemId,
-        productID: item.productID,
+        productId: item.productId,
         quantity: item.goodQuantity,
         import: importObj[item.itemId]?._sum.quantity ?? 0,
         export: exportObj[item.itemId]?._sum.quantity ?? 0,
@@ -481,7 +481,7 @@ router.get("/static/worst-seller", async (req, res) => {
     const aa = result.map((item) => {
       return {
         itemId: item.itemId,
-        productID: tempObj[item.itemId].productID,
+        productId: tempObj[item.itemId].productId,
         sum: item._sum.quantity,
       };
     });
