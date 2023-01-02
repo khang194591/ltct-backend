@@ -1,4 +1,4 @@
-import { Item, RequestStatus, Type } from "@prisma/client";
+import { Item, PackingStatus, RequestStatus, Type } from "@prisma/client";
 import dayjs from "dayjs";
 import { Router } from "express";
 import prisma from "../configs/db";
@@ -28,6 +28,7 @@ router.get("/product/item/:itemId", async (req, res) => {
 
 router.get("/product/quantity/:productId", async (req, res) => {
   try {
+    const productId = Number.parseInt(req?.params.productId);
     const items = await prisma.item.findMany({
       where: { productId: Number.parseInt(req.params.productId) },
     });
@@ -87,7 +88,7 @@ router.get("/import", async (req, res) => {
 // TODO: Finish but not test
 router.post("/import", async (req, res) => {
   try {
-    const data = req.body as { items: IItem[] };
+    const data = req.body as { items: Item[] };
 
     if (!data.items || data.items.length === 0) {
       return res.json({ error: "Please provide at least one item" });
@@ -108,6 +109,7 @@ router.post("/import", async (req, res) => {
         update: {},
       });
     }
+
     const result = await prisma.history.create({
       data: {
         type: "IMPORT",
@@ -182,8 +184,8 @@ router.patch("/import/:historyId", async (req, res) => {
   }
 });
 
-/* ---------------------- EXPORT ---------------------- */
-
+// Lấy danh sách các đơn xuất
+// TODO: SP_2
 router.get("/export", async (req, res) => {
   try {
     const limit = Number.parseInt((req.query.limit as string) ?? 10);
@@ -205,20 +207,12 @@ router.get("/export", async (req, res) => {
       return res.json(result);
     }
 
-    const result = await prisma.history.findMany({
-      where: { status, type: "EXPORT" },
-      take: limit,
+    const list = await prisma.history.findMany({
+      where: { type: "EXPORT" },
       skip: offset,
-      orderBy:
-        status === "PENDING"
-          ? {
-              createdAt: "desc",
-            }
-          : {
-              updatedAt: "desc",
-            },
+      take: limit,
     });
-    res.json(result);
+    res.json(list);
   } catch (error: any) {
     console.log(error);
     res.status(500).json({ error: INTERNAL_SERVER_ERROR, msg: error.message });
@@ -266,7 +260,7 @@ router.post("/export", async (req, res) => {
       }
     }
 
-    const result = await prisma.history.create({
+    const exportHistory = await prisma.history.create({
       data: {
         type: "EXPORT",
         HistoryItem: {
@@ -279,61 +273,122 @@ router.post("/export", async (req, res) => {
           }),
         },
       },
+      include: {
+        HistoryItem: true,
+      },
     });
-    res.json(result);
+    // Update quantity in store
+    exportHistory.HistoryItem.map(async (item) => {
+      await prisma.item.update({
+        where: {
+          itemId: item.itemId,
+        },
+        data: {
+          goodQuantity: {
+            decrement: item.quantity,
+          },
+        },
+      });
+    });
+
+    if (!exportHistory) {
+      return res.json({ error: "No have bill" });
+    }
+    res.json(exportHistory);
   } catch (error: any) {
     console.log(error);
     res.json({ error: INTERNAL_SERVER_ERROR, msg: error.message });
   }
 });
 
-// TODO: Finish but not test
+// Lấy thông tin 1 đơn xuất kho
+// TODO: SP_2
+router.get("/export/:historyId", async (req, res) => {
+  try {
+    const historyId = Number.parseInt(req.params.historyId);
+    const list = await prisma.historyItem.findMany({ where: { historyId } });
+    if (!list) {
+      return res.json({ error: "No have item" });
+    }
+    res.json(list);
+  } catch (error: any) {
+    console.log(error);
+    res.json({ error: INTERNAL_SERVER_ERROR, msg: error.message });
+  }
+});
+
+// Cập nhật thông tin 1 đơn xuất
+// TODO: SP_2
 router.patch("/export/:historyId", async (req, res) => {
   try {
     const historyId = Number.parseInt(req.params.historyId);
-    const status = req.body.status;
+    const status = String(req.body.status) as RequestStatus;
 
     const history = await prisma.history.findUnique({
-      where: { historyId },
+      where: { historyId: historyId },
       select: {
         HistoryItem: true,
         type: true,
         status: true,
+        packingStatus: true,
       },
     });
-    if (history) {
-      if (history.status !== "PENDING") {
-        return res.json({
-          message: "This request has been accepted or rejected before",
-        });
-      }
-      await prisma.history.update({
-        where: { historyId },
-        data: {
-          status: status,
-        },
-      });
-      if (
-        (status === "ACCEPTED" && history.type === "IMPORT") ||
-        (status === "REJECTED" && history.type === "EXPORT")
-      ) {
-        history.HistoryItem.map(async (item) => {
-          await prisma.item.update({
-            where: {
-              itemId: item.itemId,
-            },
-            data: {
-              goodQuantity: {
-                increment: item.quantity,
-              },
-            },
-          });
-        });
-      }
-      return res.json({ message: "Success" });
-    } else {
-      return res.status(500).json({ message: "Not found" });
+    if (!history) {
+      return res.json({ error: "History not exits!" });
     }
+
+    if (history.status !== "PENDING") {
+      return res.json({
+        message: "This request has been accepted or rejected before",
+      });
+    }
+    // Update status of ill
+    await prisma.history.update({
+      where: { historyId: historyId },
+      data: {
+        status: status,
+      },
+    });
+    // Update quantity in store
+    if (
+      (status === "REJECTED" && history.type === "EXPORT") ||
+      (status === "ACCEPTED" && history.type === "IMPORT")
+    ) {
+      history.HistoryItem.map(async (item) => {
+        await prisma.item.update({
+          where: {
+            itemId: item.itemId,
+          },
+          data: {
+            goodQuantity: {
+              increment: item.quantity,
+            },
+          },
+        });
+      });
+    }
+
+    return res.json({ message: "SUCCESS" });
+  } catch (error: any) {
+    console.log(error);
+    res.json({ error: INTERNAL_SERVER_ERROR, msg: error.message });
+  }
+});
+
+// Update trạng thái đóng gói
+// TODO: SP_02
+router.patch("/export/:historyId", async (req, res) => {
+  try {
+    const historyId = Number.parseInt(req.body.historyId);
+    const packingStatus = String(req.body.status) as PackingStatus;
+    const history = await prisma.history.update({
+      where: { historyId: historyId },
+      data: {
+        packingStatus: packingStatus,
+      },
+    });
+
+    return res.json(history);
   } catch (error: any) {
     console.log(error);
     res.json({ error: INTERNAL_SERVER_ERROR, msg: error.message });
