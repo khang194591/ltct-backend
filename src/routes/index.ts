@@ -28,8 +28,9 @@ router.get("/product/item/:itemId", async (req, res) => {
 
 router.get("/product/quantity/:productId", async (req, res) => {
   try {
+    const productId = Number.parseInt(req?.params.productId);
     const items = await prisma.item.findMany({
-      where: { productId: Number.parseInt(req.params.productId) },
+      where: { productId:  productId},
     });
     if (!items || items.length === 0) {
       return res.status(404).json({ error: `Product not found` });
@@ -243,7 +244,7 @@ router.post("/export", async (req, res) => {
       }
     }
 
-    const result = await prisma.history.create({
+    const exportHistory = await prisma.history.create({
       data: {
         type: "EXPORT",
         HistoryItem: {
