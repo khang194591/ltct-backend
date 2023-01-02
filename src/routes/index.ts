@@ -19,7 +19,7 @@ router.get("/product/item/:itemId", async (req, res) => {
     if (!item) {
       return res.status(404).json({ error: `Item not found` });
     }
-    res.json({ id: item.itemId, quantity: item.goodQuantity });
+    res.json({ id: item.itemId, quantity: item.goodQuantity , productId: item.productId});
   } catch (error: any) {
     console.log(error);
     res.status(500).json({ error: INTERNAL_SERVER_ERROR, msg: error.message });
@@ -31,6 +31,7 @@ router.get("/product/quantity/:productId", async (req, res) => {
     const productId = Number.parseInt(req?.params.productId);
     const items = await prisma.item.findMany({
       where: { productId:  productId},
+      orderBy: {itemId: 'asc'}
     });
     if (!items || items.length === 0) {
       return res.status(404).json({ error: `Product not found` });
@@ -215,6 +216,7 @@ router.post("/export", async (req, res) => {
     if (!data.items || data.items.length === 0) {
       return res.json({ error: "Please provide at least one item" });
     }
+    
     for (let index = 0; index < data.items.length; index++) {
       const element = data.items[index];
       const item = await prisma.item.findUnique({
@@ -265,19 +267,6 @@ router.post("/export", async (req, res) => {
         HistoryItem: true
       }
     });
-    // Update quantity in store
-    exportHistory.HistoryItem.map(async (item) => {
-      await prisma.item.update({
-        where: {
-          itemId: item.itemId,
-        },
-        data: {
-          goodQuantity: {
-            decrement: item.quantity
-          },
-        },
-      });
-    });
 
     if (!exportHistory) {
       return res.json({error: 'No have bill'});
@@ -324,6 +313,9 @@ router.patch("/export/:historyId", async (req, res) => {
     if (!history) {
       return res.json({error: "History not exits!"});
     }
+    if (!(history.type === "EXPORT" || history.type === "INSURANCE_EXPORT")) {
+      return res.json({error: "History type not right!"});
+    }
 
     if (history.status !== "PENDING") {
       return res.json({
@@ -338,10 +330,7 @@ router.patch("/export/:historyId", async (req, res) => {
       }
     });
     // Update quantity in store
-    if (
-      (status === "REJECTED" && history.type === "EXPORT") ||
-      (status === "ACCEPTED" && history.type === "IMPORT")
-    ) {
+    if ( status === "REJECTED") {
       history.HistoryItem.map(async (item) => {
         await prisma.item.update({
           where: {
@@ -367,7 +356,7 @@ router.patch("/export/:historyId", async (req, res) => {
 // TODO: SP_02
 router.patch("/export/packing/:historyId", async (req, res) => {
   try {
-    const historyId = Number.parseInt(req.body.historyId);
+    const historyId = Number.parseInt(req.params.historyId);
     const packingStatus = String(req.body.status) as PackingStatus;
     const history = await prisma.history.update({
       where: {historyId: historyId},
