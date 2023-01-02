@@ -26,5 +26,3 @@ const main = async () => {
 };
 
 main();
-const SegfaultHandler = require('segfault-handler');
-SegfaultHandler.registerHandler('crash.log');
