@@ -8,6 +8,8 @@ type IItem = Item & { guildline: string };
 
 const router = Router();
 
+/* ---------------------- PRODUCT ---------------------- */
+
 router.get("/product/item/:itemId", async (req, res) => {
   try {
     const itemId = Number.parseInt(req.params.itemId);
@@ -38,6 +40,8 @@ router.get("/product/quantity/:productID", async (req, res) => {
     res.status(500).json({ error: INTERNAL_SERVER_ERROR, msg: error.message });
   }
 });
+
+/* ---------------------- IMPORT ---------------------- */
 
 router.get("/import", async (req, res) => {
   try {
@@ -170,6 +174,8 @@ router.patch("/import/:historyId", async (req, res) => {
   }
 });
 
+/* ---------------------- EXPORT ---------------------- */
+
 router.get("/export", async (req, res) => {
   try {
     const limit = Number.parseInt((req.query.limit as string) ?? 10);
@@ -203,61 +209,56 @@ router.get("/export", async (req, res) => {
   }
 });
 
-router.get("/history/:historyId", async (req, res) => {
+// TODO: Finish but not test
+router.post("/export", async (req, res) => {
   try {
-    const result = await prisma.history.findUnique({
-      where: {
-        historyId: Number.parseInt(req.params.historyId),
-      },
-      select: {
-        historyId: true,
-        createdAt: true,
-        packingStatus: true,
-        status: true,
-        type: true,
-        updatedAt: true,
-        HistoryItem: true,
-      },
-    });
-    res.json(result);
-  } catch (error: any) {
-    console.log(error);
-    res.json({ error: INTERNAL_SERVER_ERROR, msg: error.message });
-  }
-});
-
-/* 
-// TODO: SP_13
-router.put("/request/import", async (req, res) => {
-  try {
-    const data = req.body as { items: Item[] };
+    const data = req.body as { items: IItem[] };
 
     if (!data.items || data.items.length === 0) {
       return res.json({ error: "Please provide at least one item" });
     }
-
     for (let index = 0; index < data.items.length; index++) {
       const element = data.items[index];
-      await prisma.item.upsert({
+      const item = await prisma.item.findUnique({
         where: {
           itemId: element.itemId,
         },
-        create: {
-          itemId: element.itemId,
-          goodQuantity: 0,
-          badQuantity: 0,
-        },
-        update: {},
       });
+      if (!item) {
+        return res.json({ error: "Invalid itemId" });
+      } else if (
+        item.goodQuantity < element.goodQuantity ||
+        item.badQuantity < element.badQuantity
+      ) {
+        return res.json({
+          message: `Item ${item.itemId} not enough to export`,
+        });
+      } else {
+        await prisma.item.update({
+          where: {
+            itemId: item.itemId,
+          },
+          data: {
+            goodQuantity: {
+              decrement: element.goodQuantity,
+            },
+            badQuantity: {
+              decrement: element.badQuantity,
+            },
+          },
+        });
+      }
     }
+
     const result = await prisma.history.create({
       data: {
-        type: "IMPORT",
+        type: "EXPORT",
         HistoryItem: {
-          create: data.items.map(item=>{
-            
-            if (item.goodQuantity!==0) {
-              
+          create: data.items.map((item) => {
+            if (item.goodQuantity !== 0) {
+              return { quantity: item.goodQuantity, itemId: item.itemId };
+            } else {
+              return { quantity: item.badQuantity, itemId: item.itemId };
             }
           }),
         },
@@ -270,60 +271,10 @@ router.put("/request/import", async (req, res) => {
   }
 });
 
-// TODO: SP_13
-router.put("/request/export", async (req, res) => {
+// TODO: Finish but not test
+router.patch("/export/:historyId", async (req, res) => {
   try {
-    const data = req.body as { items: Item[] };
-
-    if (!data.items || data.items.length === 0) {
-      return res.json({ error: "Please provide at least one item" });
-    }
-
-    for (let index = 0; index < data.items.length; index++) {
-      const element = data.items[index];
-      const item = await prisma.item.findUnique({
-        where: {
-          itemId: element.itemId,
-        },
-      });
-      if (!item) {
-        return res.json({ error: "Invalid itemId" });
-      } else if (item.quantity < element.quantity) {
-        return res.json({
-          message: `Item ${item.itemId} not enough to export`,
-        });
-      } else {
-        await prisma.item.update({
-          where: {
-            itemId: item.itemId,
-          },
-          data: {
-            quantity: {
-              decrement: element.quantity,
-            },
-          },
-        });
-      }
-    }
-    const result = await prisma.history.create({
-      data: {
-        type: "EXPORT",
-        HistoryItem: {
-          create: data.items,
-        },
-      },
-    });
-    res.json(result);
-  } catch (error: any) {
-    console.log(error);
-    res.json({ error: INTERNAL_SERVER_ERROR, msg: error.message });
-  }
-});
-
-// TODO: SP_13
-router.patch("/request/handle", async (req, res) => {
-  try {
-    const historyId = Number.parseInt(req.body.historyId);
+    const historyId = Number.parseInt(req.params.historyId);
     const status = req.body.status;
 
     const history = await prisma.history.findUnique({
@@ -351,16 +302,12 @@ router.patch("/request/handle", async (req, res) => {
         (status === "REJECTED" && history.type === "EXPORT")
       ) {
         history.HistoryItem.map(async (item) => {
-          await prisma.item.upsert({
+          await prisma.item.update({
             where: {
               itemId: item.itemId,
             },
-            create: {
-              itemId: item.itemId,
-              quantity: item.quantity,
-            },
-            update: {
-              quantity: {
+            data: {
+              goodQuantity: {
                 increment: item.quantity,
               },
             },
@@ -377,7 +324,32 @@ router.patch("/request/handle", async (req, res) => {
   }
 });
 
-*/
+/* ---------------------- HISTORY ---------------------- */
+
+router.get("/history/:historyId", async (req, res) => {
+  try {
+    const result = await prisma.history.findUnique({
+      where: {
+        historyId: Number.parseInt(req.params.historyId),
+      },
+      select: {
+        historyId: true,
+        createdAt: true,
+        packingStatus: true,
+        status: true,
+        type: true,
+        updatedAt: true,
+        HistoryItem: true,
+      },
+    });
+    res.json(result);
+  } catch (error: any) {
+    console.log(error);
+    res.json({ error: INTERNAL_SERVER_ERROR, msg: error.message });
+  }
+});
+
+/* ---------------------- STATIC ---------------------- */
 
 // TODO: Finish but not test
 router.get("/static/best-seller", async (req, res) => {
