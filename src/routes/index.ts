@@ -3,6 +3,7 @@ import dayjs from "dayjs";
 import { Router } from "express";
 import prisma from "../configs/db";
 import { INTERNAL_SERVER_ERROR } from "../constants/response";
+import lodash from "lodash";
 
 type IItem = Item & { guildline: string };
 
@@ -127,7 +128,7 @@ router.post("/import", async (req, res) => {
     res.json(result);
   } catch (error: any) {
     console.log(error);
-    res.json({ error: INTERNAL_SERVER_ERROR, msg: error.message });
+    res.status(500).json({ error: INTERNAL_SERVER_ERROR, msg: error.message });
   }
 });
 
@@ -180,9 +181,11 @@ router.patch("/import/:historyId", async (req, res) => {
     }
   } catch (error: any) {
     console.log(error);
-    res.json({ error: INTERNAL_SERVER_ERROR, msg: error.message });
+    res.status(500).json({ error: INTERNAL_SERVER_ERROR, msg: error.message });
   }
 });
+
+/* ---------------------- EXPORT ---------------------- */
 
 // Lấy danh sách các đơn xuất
 // TODO: SP_2
@@ -235,12 +238,12 @@ router.post("/export", async (req, res) => {
         },
       });
       if (!item) {
-        return res.json({ error: "Invalid itemId" });
+        return res.status(400).json({ error: "Invalid itemId" });
       } else if (
         item.goodQuantity < element.goodQuantity ||
         item.badQuantity < element.badQuantity
       ) {
-        return res.json({
+        return res.status(400).json({
           message: `Item ${item.itemId} not enough to export`,
         });
       } else {
@@ -260,7 +263,7 @@ router.post("/export", async (req, res) => {
       }
     }
 
-    const exportHistory = await prisma.history.create({
+    const result = await prisma.history.create({
       data: {
         type: "EXPORT",
         HistoryItem: {
@@ -273,47 +276,11 @@ router.post("/export", async (req, res) => {
           }),
         },
       },
-      include: {
-        HistoryItem: true,
-      },
     });
-    // Update quantity in store
-    exportHistory.HistoryItem.map(async (item) => {
-      await prisma.item.update({
-        where: {
-          itemId: item.itemId,
-        },
-        data: {
-          goodQuantity: {
-            decrement: item.quantity,
-          },
-        },
-      });
-    });
-
-    if (!exportHistory) {
-      return res.json({ error: "No have bill" });
-    }
-    res.json(exportHistory);
+    res.json(result);
   } catch (error: any) {
     console.log(error);
-    res.json({ error: INTERNAL_SERVER_ERROR, msg: error.message });
-  }
-});
-
-// Lấy thông tin 1 đơn xuất kho
-// TODO: SP_2
-router.get("/export/:historyId", async (req, res) => {
-  try {
-    const historyId = Number.parseInt(req.params.historyId);
-    const list = await prisma.historyItem.findMany({ where: { historyId } });
-    if (!list) {
-      return res.json({ error: "No have item" });
-    }
-    res.json(list);
-  } catch (error: any) {
-    console.log(error);
-    res.json({ error: INTERNAL_SERVER_ERROR, msg: error.message });
+    res.status(500).json({ error: INTERNAL_SERVER_ERROR, msg: error.message });
   }
 });
 
@@ -371,7 +338,7 @@ router.patch("/export/:historyId", async (req, res) => {
     return res.json({ message: "SUCCESS" });
   } catch (error: any) {
     console.log(error);
-    res.json({ error: INTERNAL_SERVER_ERROR, msg: error.message });
+    res.status(500).json({ error: INTERNAL_SERVER_ERROR, msg: error.message });
   }
 });
 
@@ -391,7 +358,7 @@ router.patch("/export/:historyId", async (req, res) => {
     return res.json(history);
   } catch (error: any) {
     console.log(error);
-    res.json({ error: INTERNAL_SERVER_ERROR, msg: error.message });
+    res.status(500).json({ error: INTERNAL_SERVER_ERROR, msg: error.message });
   }
 });
 
@@ -410,13 +377,21 @@ router.get("/history/:historyId", async (req, res) => {
         status: true,
         type: true,
         updatedAt: true,
-        HistoryItem: true,
+        HistoryItem: {
+          include: {
+            item: {
+              select: {
+                productId: true,
+              },
+            },
+          },
+        },
       },
     });
     res.json(result);
   } catch (error: any) {
     console.log(error);
-    res.json({ error: INTERNAL_SERVER_ERROR, msg: error.message });
+    res.status(500).json({ error: INTERNAL_SERVER_ERROR, msg: error.message });
   }
 });
 
@@ -425,22 +400,6 @@ router.get("/history/:historyId", async (req, res) => {
 // TODO: Finish but not test
 router.get("/static/best-seller", async (req, res) => {
   try {
-    const importItems = await prisma.historyItem.groupBy({
-      by: ["itemId"],
-      where: {
-        history: {
-          status: "ACCEPTED",
-          type: "IMPORT",
-          createdAt: {
-            gte: dayjs().subtract(1, "month").toDate(),
-          },
-        },
-      },
-      _sum: {
-        quantity: true,
-      },
-    });
-
     const exportItems = await prisma.historyItem.groupBy({
       by: ["itemId"],
       where: {
@@ -456,50 +415,64 @@ router.get("/static/best-seller", async (req, res) => {
         quantity: true,
       },
     });
+    const temp = await prisma.item.findMany({
+      where: {
+        itemId: {
+          in: exportItems.map((item) => item.itemId),
+        },
+      },
+    });
 
-    const items = await prisma.item.findMany();
-
-    const importObj: any = importItems.reduce(
+    const tempObj: any = temp.reduce(
       (obj, cur) => ({ ...obj, [cur.itemId]: cur }),
       {}
     );
 
-    const exportObj: any = exportItems.reduce(
-      (obj, cur) => ({ ...obj, [cur.itemId]: cur }),
-      {}
-    );
-
-    const result = items.map((item) => {
+    const aa = exportItems.map((item) => {
       return {
         itemId: item.itemId,
-        productId: item.productId,
-        quantity: item.goodQuantity,
-        import: importObj[item.itemId]?._sum.quantity ?? 0,
-        export: exportObj[item.itemId]?._sum.quantity ?? 0,
-        remain:
-          (exportObj[item.itemId]?._sum.quantity ?? 0) -
-          (importObj[item.itemId]?._sum.quantity ?? 0),
+        productId: tempObj[item.itemId].productId,
+        sum: item._sum.quantity,
       };
     });
 
-    const response = result.filter((item) => {
-      return item.import !== 0 && item.export !== 0;
-    });
+    const toCollection = function (obj: any) {
+      return Object.keys(obj)
+        .sort(function (x, y) {
+          return +x - +y;
+        })
+        .map(function (k) {
+          return obj[k];
+        });
+    };
+
+    const aaa = aa.reduce(function (item: any, x) {
+      var id = item[x.productId];
+      if (id) {
+        id.sum += x.sum;
+      } else {
+        item[x.productId] = x;
+        // delete x.productId;
+      }
+      return item;
+    }, {});
+    const response = toCollection(aaa);
+
     res.json(
       response
-        .sort((a, b) => a.remain - b.remain)
-        .slice(Math.max(response.length - 5, 0))
+        .sort((a, b) => a.sum - b.sum)
+        .slice(Math.max(response.length - 10, 0))
     );
   } catch (error: any) {
     console.log(error);
-    res.json({ error: INTERNAL_SERVER_ERROR, msg: error.message });
+    res.status(500).json({ error: INTERNAL_SERVER_ERROR, msg: error.message });
   }
 });
 
 // TODO: Finish but not test
 router.get("/static/worst-seller", async (req, res) => {
   try {
-    const result = await prisma.historyItem.groupBy({
+    const exportItems = await prisma.historyItem.groupBy({
       by: ["itemId"],
       where: {
         history: {
@@ -513,17 +486,11 @@ router.get("/static/worst-seller", async (req, res) => {
       _sum: {
         quantity: true,
       },
-      orderBy: {
-        _sum: {
-          quantity: "asc",
-        },
-      },
     });
-
     const temp = await prisma.item.findMany({
       where: {
         itemId: {
-          in: result.map((item) => item.itemId),
+          in: exportItems.map((item) => item.itemId),
         },
       },
     });
@@ -533,7 +500,7 @@ router.get("/static/worst-seller", async (req, res) => {
       {}
     );
 
-    const aa = result.map((item) => {
+    const aa = exportItems.map((item) => {
       return {
         itemId: item.itemId,
         productId: tempObj[item.itemId].productId,
@@ -541,10 +508,36 @@ router.get("/static/worst-seller", async (req, res) => {
       };
     });
 
-    res.json(aa);
+    const toCollection = function (obj: any) {
+      return Object.keys(obj)
+        .sort(function (x, y) {
+          return +x - +y;
+        })
+        .map(function (k) {
+          return obj[k];
+        });
+    };
+
+    const aaa = aa.reduce(function (item: any, x) {
+      var id = item[x.productId];
+      if (id) {
+        id.sum += x.sum;
+      } else {
+        item[x.productId] = x;
+        // delete x.productId;
+      }
+      return item;
+    }, {});
+    const response = toCollection(aaa);
+
+    res.json(
+      response
+        .sort((a, b) => b.sum - a.sum)
+        .slice(Math.max(response.length - 10, 0))
+    );
   } catch (error: any) {
     console.log(error);
-    res.json({ error: INTERNAL_SERVER_ERROR, msg: error.message });
+    res.status(500).json({ error: INTERNAL_SERVER_ERROR, msg: error.message });
   }
 });
 
@@ -596,7 +589,7 @@ router.get("/static/most-return", async (req, res) => {
     res.json(aa);
   } catch (error: any) {
     console.log(error);
-    res.json({ error: INTERNAL_SERVER_ERROR, msg: error.message });
+    res.status(500).json({ error: INTERNAL_SERVER_ERROR, msg: error.message });
   }
 });
 
