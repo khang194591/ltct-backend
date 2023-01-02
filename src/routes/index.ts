@@ -4,7 +4,7 @@ import { Router } from "express";
 import prisma from "../configs/db";
 import { INTERNAL_SERVER_ERROR } from "../constants/response";
 
-type IItem = Item & { guildline: string };
+// type IItem = Item & { guildline: string };
 
 const router = Router();
 
@@ -88,17 +88,21 @@ router.post("/import", async (req, res) => {
 
     for (let index = 0; index < data.items.length; index++) {
       const element = data.items[index];
+      console.log("ID: ", element.itemId);
       await prisma.item.upsert({
         where: {
           itemId: element.itemId,
         },
         create: {
           itemId: element.itemId,
-          goodQuantity: 0,
-          badQuantity: 0,
-          productId: element.productId,
+          goodQuantity: element.goodQuantity,
+          badQuantity: element.badQuantity,
+          productId: element.productId
         },
-        update: {},
+        update: {
+          goodQuantity: {increment: element.goodQuantity},
+          badQuantity: {increment: element.badQuantity},
+        },
       });
     }
 
@@ -108,9 +112,9 @@ router.post("/import", async (req, res) => {
         HistoryItem: {
           create: data.items.map((item) => {
             if (item.goodQuantity !== 0) {
-              return { quantity: item.goodQuantity, itemId: item.itemId };
+              return { quantity: item.goodQuantity + item.badQuantity, itemId: item.itemId };
             } else {
-              return { quantity: item.badQuantity, itemId: item.itemId };
+              return { quantity: item.badQuantity + item.goodQuantity, itemId: item.itemId };
             }
           }),
         },
@@ -192,7 +196,7 @@ router.get("/export", async (req, res) => {
     }
 
     const list = await prisma.history.findMany({
-      where: {type: "EXPORT"},
+      where: {type: "EXPORT", status},
       skip: offset,
       take: limit 
     });
@@ -206,7 +210,7 @@ router.get("/export", async (req, res) => {
 // TODO: Finish but not test
 router.post("/export", async (req, res) => {
   try {
-    const data = req.body as { items: IItem[] };
+    const data = req.body as { items: Item[] };
 
     if (!data.items || data.items.length === 0) {
       return res.json({ error: "Please provide at least one item" });
@@ -361,7 +365,7 @@ router.patch("/export/:historyId", async (req, res) => {
 
 // Update trạng thái đóng gói 
 // TODO: SP_02
-router.patch("/export/:historyId", async (req, res) => {
+router.patch("/export/packing/:historyId", async (req, res) => {
   try {
     const historyId = Number.parseInt(req.body.historyId);
     const packingStatus = String(req.body.status) as PackingStatus;
