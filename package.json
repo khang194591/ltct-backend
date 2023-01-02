@@ -31,6 +31,6 @@
     "jsonwebtoken": "^8.5.1"
   },
   "prisma": {
-    "seed": "node prisma/seed.ts"
+    "seed": "ts-node prisma/seed.ts"
   }
 }
