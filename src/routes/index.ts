@@ -195,6 +195,7 @@ router.get("/export", async (req, res) => {
     const offset = Number.parseInt((req.query.offset as string) ?? 0);
     const status = String(req.query.status) as RequestStatus;
     const packingStatus = String(req.query.packingStatus) as PackingStatus;
+
     if (packingStatus === "DONE" || packingStatus === "PENDING") {
       const result = await prisma.history.findMany({
         where: {
@@ -226,7 +227,7 @@ router.get("/export", async (req, res) => {
     }
 
     const list = await prisma.history.findMany({
-      where: { type: "EXPORT" },
+      where: { type: "EXPORT", status },
       skip: offset,
       take: limit,
     });
