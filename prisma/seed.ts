@@ -12,8 +12,8 @@ function randomIntFromInterval(min: number, max: number) {
 }
 
 const main = async () => {
-  // await fakeImport();
-  for (let index = 0; index < 5; index++) {
+  for (let index = 0; index < 20; index++) {
+    // await fakeImport();
     await fakeExport();
   }
 };

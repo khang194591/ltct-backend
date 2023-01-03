@@ -194,6 +194,21 @@ router.get("/export", async (req, res) => {
     const limit = Number.parseInt((req.query.limit as string) ?? 10);
     const offset = Number.parseInt((req.query.offset as string) ?? 0);
     const status = String(req.query.status) as RequestStatus;
+    const packingStatus = String(req.query.packingStatus) as PackingStatus;
+    if (packingStatus === "DONE" || packingStatus === "PENDING") {
+      const result = await prisma.history.findMany({
+        where: {
+          type: "EXPORT",
+          packingStatus,
+        },
+        take: limit,
+        skip: offset,
+        orderBy: {
+          historyId: "desc",
+        },
+      });
+      return res.json(result);
+    }
     if (
       status.valueOf() !== "ACCEPTED" &&
       status.valueOf() !== "PENDING" &&
@@ -314,6 +329,7 @@ router.patch("/export/:historyId", async (req, res) => {
       where: { historyId: historyId },
       data: {
         status: status,
+        packingStatus: status === "ACCEPTED" ? "PENDING" : null,
       },
     });
     // Update quantity in store
@@ -344,14 +360,13 @@ router.patch("/export/:historyId", async (req, res) => {
 
 // Update trạng thái đóng gói
 // TODO: SP_02
-router.patch("/export/:historyId", async (req, res) => {
+router.post("/export/:historyId", async (req, res) => {
   try {
-    const historyId = Number.parseInt(req.body.historyId);
-    const packingStatus = String(req.body.status) as PackingStatus;
+    const historyId = Number.parseInt(req.params.historyId);
     const history = await prisma.history.update({
       where: { historyId: historyId },
       data: {
-        packingStatus: packingStatus,
+        packingStatus: "DONE",
       },
     });
 
