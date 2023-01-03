@@ -20,23 +20,19 @@ model History {
   status        RequestStatus? @default(PENDING)
   packingStatus PackingStatus?
   type          Type
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @default(now()) @updatedAt
-
-  HistoryItem HistoryItem[]
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @default(now()) @updatedAt
+  HistoryItem   HistoryItem[]
 }
 
 model HistoryItem {
   historyItemId Int         @id @default(autoincrement())
   quantity      Int
   status        ItemStatus? @default(GOOD)
-
-  item   Item? @relation(fields: [itemId], references: [itemId])
-  itemId Int
-
-  history   History? @relation(fields: [historyId], references: [historyId])
-  historyId Int?
+  itemId        Int
+  historyId     Int?
+  history       History?    @relation(fields: [historyId], references: [historyId])
+  item          Item        @relation(fields: [itemId], references: [itemId])
 }
 
 enum Type {
