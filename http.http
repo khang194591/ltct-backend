@@ -4,3 +4,8 @@
 GET {{baseUrl}}/export HTTP/1.1
 
 Content-Type: application/json
+
+###
+GET {{baseUrl}}/product/1 HTTP/1.1
+###
+GET {{baseUrl}}/product/item/12 HTTP/1.1
