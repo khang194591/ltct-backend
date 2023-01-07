@@ -3,6 +3,7 @@ import dayjs from "dayjs";
 import { Router } from "express";
 import prisma from "../configs/db";
 import { INTERNAL_SERVER_ERROR } from "../constants/response";
+import { productsServer } from "../services/axios";
 
 type IItem = Item & { guildline: string };
 
@@ -12,6 +13,11 @@ const router = Router();
 router.get("/product/:productId", async (req, res) => {
   try {
     const productId = Number.parseInt(req.params.productId);
+    const {
+      data: { name, description },
+    } = await (
+      await productsServer.get(`/products/${productId}`)
+    ).data;
     const listItem = await prisma.item.findMany({
       where: { productId: productId },
     });
@@ -20,8 +26,10 @@ router.get("/product/:productId", async (req, res) => {
       return res.status(404).json({ error: `Product not found` });
     }
     res.json({
-      "productId": productId,
-      "listItem": listItem
+      productId,
+      name,
+      description,
+      listItem,
     });
   } catch (error: any) {
     console.log(error);
@@ -38,7 +46,11 @@ router.get("/product/item/:itemId", async (req, res) => {
     if (!item) {
       return res.status(404).json({ error: `Item not found` });
     }
-    res.json({ id: item.itemId, quantity: item.goodQuantity, productId: item.productId });
+    res.json({
+      id: item.itemId,
+      quantity: item.goodQuantity,
+      productId: item.productId,
+    });
   } catch (error: any) {
     console.log(error);
     res.status(500).json({ error: INTERNAL_SERVER_ERROR, msg: error.message });
