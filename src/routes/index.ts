@@ -13,23 +13,46 @@ const router = Router();
 router.get("/product/:productId", async (req, res) => {
   try {
     const productId = Number.parseInt(req.params.productId);
-    const {
-      data: { name, description },
-    } = await (
+    const { data } = await (
       await productsServer.get(`/products/${productId}`)
     ).data;
+
     const listItem = await prisma.item.findMany({
       where: { productId: productId },
+      select: {
+        itemId: true,
+        goodQuantity: true,
+      },
     });
 
     if (!listItem) {
       return res.status(404).json({ error: `Product not found` });
     }
+
+    let quantity = 0;
+
+    listItem.map((item) => {
+      quantity += item.goodQuantity;
+    });
+    const tempObj: any = listItem.reduce(
+      (obj, cur) => ({ ...obj, [cur.itemId]: cur }),
+      {}
+    );
+    // console.log(tempObj);
+
+    if (data.sub_products.length !== 0) {
+      data.sub_products = data.sub_products.map((item: any) => {
+        // console.log(item);
+        return {
+          ...item,
+          quantity: tempObj[item.id]?.goodQuantity,
+        };
+      });
+    }
     res.json({
-      productId,
-      name,
-      description,
-      listItem,
+      ...data,
+      quantity,
+      // listItem,
     });
   } catch (error: any) {
     console.log(error);
@@ -85,6 +108,12 @@ router.get("/import", async (req, res) => {
       status.valueOf() !== "PENDING" &&
       status.valueOf() !== "REJECTED"
     ) {
+      const count = await prisma.history.count({
+        where: {
+          type: "IMPORT",
+        },
+      });
+
       const result = await prisma.history.findMany({
         where: { type: "IMPORT" },
         take: limit,
@@ -93,8 +122,12 @@ router.get("/import", async (req, res) => {
           historyId: "desc",
         },
       });
-      return res.json(result);
+      return res.json({ count, data: result });
     }
+
+    const count = await prisma.history.count({
+      where: { status, type: "IMPORT" },
+    });
 
     const result = await prisma.history.findMany({
       where: { status, type: "IMPORT" },
@@ -109,7 +142,7 @@ router.get("/import", async (req, res) => {
               updatedAt: "desc",
             },
     });
-    res.json(result);
+    res.json({ count, data: result });
   } catch (error: any) {
     console.log(error);
     res.status(500).json({ error: INTERNAL_SERVER_ERROR, msg: error.message });
