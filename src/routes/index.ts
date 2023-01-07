@@ -9,6 +9,18 @@ type IItem = Item & { guildline: string };
 
 const router = Router();
 
+/* ---------------------- WAREHOUSE ---------------------- */
+router.get("/warehouse/info", async (req, res) => {
+  try {
+    res.status(200).json({
+      "location": "DH Bach Khoa Ha Noi",
+    });
+  } catch (error: any) {
+    console.log(error);
+    res.status(500).json({error: INTERNAL_SERVER_ERROR, msg: error.message});
+  }
+})
+
 /* ---------------------- PRODUCT ---------------------- */
 router.get("/product/:productId", async (req, res) => {
   try {
