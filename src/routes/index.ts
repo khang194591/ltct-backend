@@ -38,7 +38,7 @@ router.get("/product/item/:itemId", async (req, res) => {
     if (!item) {
       return res.status(404).json({ error: `Item not found` });
     }
-    res.json({ id: item.itemId, quantity: item.goodQuantity, productid: item.productId });
+    res.json({ id: item.itemId, quantity: item.goodQuantity, productId: item.productId });
   } catch (error: any) {
     console.log(error);
     res.status(500).json({ error: INTERNAL_SERVER_ERROR, msg: error.message });
