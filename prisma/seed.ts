@@ -12,7 +12,7 @@ function randomIntFromInterval(min: number, max: number) {
 }
 
 const main = async () => {
-  for (let index = 0; index < 20; index++) {
+  for (let index = 0; index < 5; index++) {
     // await fakeImport();
     await fakeExport();
   }
@@ -42,15 +42,15 @@ const fakeImport = async () => {
       });
       if (response.status === 200) {
         console.log(response.data);
-        const body =
-          Math.random() >= 0.3
-            ? { status: "ACCEPTED" }
-            : { status: "REJECTED" };
-        const res = await client.patch(
-          `/import/${response.data.historyId}`,
-          body
-        );
-        console.log(res.data);
+        // const body =
+        //   Math.random() >= 0.3
+        //     ? { status: "ACCEPTED" }
+        //     : { status: "REJECTED" };
+        // const res = await client.patch(
+        //   `/import/${response.data.historyId}`,
+        //   body
+        // );
+        // console.log(res.data);
       }
     } catch (error) {
       console.log(error);
@@ -76,13 +76,13 @@ const fakeExport = async () => {
         items,
       });
       console.log(response.data);
-      const body =
-        Math.random() >= 0.3 ? { status: "ACCEPTED" } : { status: "REJECTED" };
-      const res = await client.patch(
-        `/export/${response.data.historyId}`,
-        body
-      );
-      console.log(res.data);
+      // const body =
+      //   Math.random() >= 0.3 ? { status: "ACCEPTED" } : { status: "REJECTED" };
+      // const res = await client.patch(
+      //   `/export/${response.data.historyId}`,
+      //   body
+      // );
+      // console.log(res.data);
     } catch (error) {
       console.log("Error happened");
     }

@@ -13,13 +13,13 @@ const router = Router();
 router.get("/warehouse/info", async (req, res) => {
   try {
     res.status(200).json({
-      "location": "DH Bach Khoa Ha Noi",
+      location: "DH Bach Khoa Ha Noi",
     });
   } catch (error: any) {
     console.log(error);
-    res.status(500).json({error: INTERNAL_SERVER_ERROR, msg: error.message});
+    res.status(500).json({ error: INTERNAL_SERVER_ERROR, msg: error.message });
   }
-})
+});
 
 /* ---------------------- PRODUCT ---------------------- */
 router.get("/product/:productId", async (req, res) => {
@@ -272,6 +272,12 @@ router.get("/export", async (req, res) => {
     const packingStatus = String(req.query.packingStatus) as PackingStatus;
 
     if (packingStatus === "DONE" || packingStatus === "PENDING") {
+      const count = await prisma.history.count({
+        where: {
+          type: "IMPORT",
+          packingStatus,
+        },
+      });
       const result = await prisma.history.findMany({
         where: {
           type: "EXPORT",
@@ -283,13 +289,16 @@ router.get("/export", async (req, res) => {
           historyId: "desc",
         },
       });
-      return res.json(result);
+      return res.json({ count, data: result });
     }
     if (
       status.valueOf() !== "ACCEPTED" &&
       status.valueOf() !== "PENDING" &&
       status.valueOf() !== "REJECTED"
     ) {
+      const count = await prisma.history.count({
+        where: { type: "EXPORT" },
+      });
       const result = await prisma.history.findMany({
         where: { type: "EXPORT" },
         take: limit,
@@ -298,15 +307,20 @@ router.get("/export", async (req, res) => {
           historyId: "desc",
         },
       });
-      return res.json(result);
+      return res.json({ count, data: result });
     }
-
-    const list = await prisma.history.findMany({
+    const count = await prisma.history.count({
+      where: { type: "EXPORT", status },
+    });
+    const result = await prisma.history.findMany({
       where: { type: "EXPORT", status },
       skip: offset,
       take: limit,
+      orderBy: {
+        historyId: "desc",
+      },
     });
-    res.json(list);
+    res.json({ count, data: result });
   } catch (error: any) {
     console.log(error);
     res.status(500).json({ error: INTERNAL_SERVER_ERROR, msg: error.message });
