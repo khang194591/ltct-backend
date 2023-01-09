@@ -1,3 +1,8 @@
 @base_url = http://localhost:3000/api
 
-GET  {{base_url}}/import?status=PENDING HTTP/1.1
+PATCH {{base_url}}/product/item/27 HTTP/1.1
+Content-Type: application/json
+
+{
+    "quantity": 1
+}
