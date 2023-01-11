@@ -5,11 +5,7 @@
 
 [![Build Status](https://travis-ci.org/joemccann/dillinger.svg?branch=master)](https://travis-ci.org/joemccann/dillinger)
 
-✨Magic ✨
-
-## Features
-
-
+### Version 1.2.0
 ## Tech
 
 Dillinger uses a number of open source projects to work properly:
