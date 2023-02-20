@@ -2,6 +2,7 @@ import axios from "axios";
 import { Item } from "@prisma/client";
 import { exit } from "process";
 import prisma from "../src/configs/db";
+import dayjs from "dayjs";
 
 const client = axios.create({
   baseURL: "http://localhost:3000/api",
@@ -14,8 +15,9 @@ function randomIntFromInterval(min: number, max: number) {
 const main = async () => {
   for (let index = 0; index < 5; index++) {
     // await fakeImport();
-    await fakeExport();
+    // await fakeExport();
   }
+  test();
 };
 
 const fakeImport = async () => {
@@ -88,5 +90,77 @@ const fakeExport = async () => {
     }
   }
 };
+
+const test = async () => {
+  try {
+    const exportItems = await prisma.historyItem.groupBy({
+      by: ["itemId"],
+      where: {
+        history: {
+          status: "ACCEPTED",
+          type: "EXPORT",
+          updatedAt: {
+            gte: dayjs().subtract(1, "month").toDate(),
+          },
+        },
+      },
+      _sum: {
+        quantity: true,
+      },
+    });
+    console.log(exportItems);
+
+    const temp = await prisma.item.findMany({
+      where: {
+        itemId: {
+          in: exportItems.map((item) => item.itemId),
+        },
+      },
+    });
+
+    const tempObj: any = temp.reduce(
+      (obj, cur) => ({ ...obj, [cur.itemId]: cur }),
+      {}
+    );
+
+    const aa = exportItems.map((item) => {
+      return {
+        itemId: item.itemId,
+        productId: tempObj[item.itemId].productId,
+        sum: item._sum.quantity,
+      };
+    });
+
+    const toCollection = function (obj: any) {
+      return Object.keys(obj)
+        .sort(function (x, y) {
+          return +x - +y;
+        })
+        .map(function (k) {
+          return obj[k];
+        });
+    };
+
+    const aaa = aa.reduce(function (item: any, x) {
+      var id = item[x.productId];
+      if (id) {
+        id.sum += x.sum;
+      } else {
+        item[x.productId] = x;
+        // delete x.productId;
+      }
+      return item;
+    }, {});
+    const response = toCollection(aaa);
+
+    console.log(
+      response
+        .sort((a, b) => a.sum - b.sum)
+        .slice(Math.max(response.length - 10, 0))
+    );
+  } catch (error: any) {
+    console.log(error);
+  }
+}
 
 main();

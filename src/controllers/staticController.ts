@@ -14,7 +14,7 @@ async function getBestSellers(req: Request, res: Response) {
         history: {
           status: "ACCEPTED",
           type: "EXPORT",
-          createdAt: {
+          updatedAt: {
             gte: dayjs().subtract(1, "month").toDate(),
           },
         },
@@ -85,7 +85,7 @@ async function getWorstSellers(req: Request, res: Response) {
         history: {
           status: "ACCEPTED",
           type: "EXPORT",
-          createdAt: {
+          updatedAt: {
             gte: dayjs().subtract(1, "month").toDate(),
           },
         },
